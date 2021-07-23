@@ -8,7 +8,13 @@ pub enum TokenDistributorError {
         InvalidInstruction,
         // Invalid lockup schedule data
         #[error("Invalid lockup schedule data")]
-        InvalidLockupScheduleData
+        InvalidLockupScheduleData,
+        // Not rent exempt
+        #[error("State account not rent exempt")]
+        NotRentExempt,
+        // Invalid start timestamp
+        #[error("Invalid start timestamp")]
+        InvalidStartTimestamp,
 }
 
 impl From<TokenDistributorError> for ProgramError {

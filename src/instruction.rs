@@ -8,6 +8,7 @@ pub enum TokenDistributorInstruction {
     // 1. [writable] lockup schedule state (empty)
     // 2. [] token mint
     // 3. [] clock sysvar
+    // 4. [] rent sysvar
     CreateLockupSchedule {
         start_timestamp: u64,
         total_unlock_periods: u32,
@@ -23,6 +24,7 @@ pub enum TokenDistributorInstruction {
     // 4. [writable] temporary lockup token account
     // 5. [] token program (transfer ownership of temp token account to PDA)
     // 6. [] clock sysvar
+    // 7. [] rent sysvar
     LockTokens {
         token_quantity: u64
     },
