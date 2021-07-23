@@ -89,5 +89,81 @@ impl Pack for LockupSchedule {
         *total_token_quantity_dst = total_token_quantity.to_le_bytes();
         *token_quantity_locked_dst = token_quantity_locked.to_le_bytes();
     }
+}
 
+// LOCKUP STATE
+pub struct Lockup {
+    is_initialized: bool,
+    lockup_schedule_state: Pubkey,
+    receiving_account: Pubkey,
+    lockup_token_account: Pubkey,
+    token_quantity: u64,
+    periods_redeemed: u32
+}
+
+impl Sealed for Lockup {}
+
+impl IsInitialized for Lockup {
+    fn is_initialized(&self) -> bool {
+        self.is_initialized
+    }
+}
+
+impl Pack for Lockup {
+    // is_intialized=1, lockup_schedule_state=4, receiving_account=4, lockup_token_account=4, token_quantity=8, periods_redeemed=4
+    const LEN: usize = 25;
+
+    fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+        let src = array_ref![src, 0, Lockup::LEN];
+        let (
+            is_initialized,
+            lockup_schedule_state,
+            receiving_account,
+            lockup_token_account,
+            token_quantity,
+            periods_redeemed
+        ) = array_refs![src, 1, 4, 4, 4, 8, 4];
+        let is_initialized = match is_initialized {
+            [0] => false,
+            [1] => true,
+            _ => return Err(TokenDistributorError::InvalidLockupScheduleData.into());
+        }
+
+        Ok(Lockup {
+            is_initialized,
+            lockup_schedule_state: Pubkey::new_from_array(*lockup_schedule_state),
+            receiving_account: Pubkey::new_from_array(*receiving_account),
+            lockup_token_account: Pubkey::new_from_array(*lockup_token_account),
+            token_quantity: u64::from_le_bytes(*token_quantity),
+            periods_redeemed: u32::from_le_bytes(*periods_redeemed)
+        })
+    }
+
+    fn pack_into_slice(&self, dstL &mut [u8]) {
+        let dst = array_mut_ref![dst, 0, Lockup::LEN];
+        let (
+            is_initialized_dst,
+            lockup_schedule_state_dst,
+            receiving_account_dst,
+            lockup_token_account_dst,
+            token_quantity_dst,
+            periods_redeemed_dst
+        ) = mut_array_refs![dst, 1, 4, 4, 4, 8, 4];
+
+        let LockupSchedule {
+            is_initialized,
+            lockup_schedule_state,
+            receiving_account,
+            lockup_token_account,
+            token_quantity,
+            periods_redeemed
+        } = self;
+
+        is_initialized_dst[0] = *is_initialized as u8;
+        lockup_schedule_state_dst.copy_from_slice(lockup_schedule_state.as_ref());
+        receiving_account_dst.copy_from_slice(receiving_account.as_ref());
+        lockup_token_account_dst.copy_from_slice(lockup_token_account.as_ref());
+        *token_quantity_dst = token_quantity.to_le_bytes();
+        *periods_redeemed_dst = periods_redeemed.to_le_bytes();
+    }
 }
