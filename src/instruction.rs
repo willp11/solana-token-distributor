@@ -1,5 +1,5 @@
 use solana_program::program_error::ProgramError;
-use crate::error::SolBetError::InvalidInstruction;
+use crate::error::TokenDistributorError::InvalidInstruction;
 
 pub enum TokenDistributorInstruction {
 

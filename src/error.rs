@@ -2,14 +2,17 @@ use thiserror::Error;
 use solana_program::program_error::ProgramError;
 
 #[derive(Error, Debug, Copy, Clone)]
-pub enum SolBetError {
+pub enum TokenDistributorError {
         // Invalid instruction
         #[error("Invalid Instruction")]
-        InvalidInstruction
+        InvalidInstruction,
+        // Invalid lockup schedule data
+        #[error("Invalid lockup schedule data")]
+        InvalidLockupScheduleData
 }
 
-impl From<SolBetError> for ProgramError {
-    fn from(e: SolBetError) -> Self {
+impl From<TokenDistributorError> for ProgramError {
+    fn from(e: TokenDistributorError) -> Self {
         ProgramError::Custom(e as u32)
     }
 }
