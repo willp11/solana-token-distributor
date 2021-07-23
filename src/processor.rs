@@ -10,7 +10,7 @@ use solana_program::{
     clock::{Clock}
 };
 
-use crate::{instruction::TokenDistributorInstruction}
+use crate::{instruction::TokenDistributorInstruction, state::LockupSchedule, state::Lockup}
 
 pub struct Processor;
 impl Processor {
@@ -43,6 +43,37 @@ impl Processor {
         period_duration: u64,
         total_lockup_quantity: u64
     ) -> ProgramResult {
+
+        // get accounts
+        let account_info_iter = &mut accounts.iter();
+        let initializer = next_account_info(account_info_iter)?;
+        let lockup_schedule_state_account = next_account_info(account_info_iter)?;
+        let token_mint = next_account_info(account_info_iter)?;
+        let clock_sysvar = next_account_info(account_info_iter)?;
+        let rent_sysvar = next_account_info(account_info_iter)?;
+
+        // check the start timestamp is after current timestamp
+        let clock = &Clock::from_account_info(clock_sysvar)?;
+        let current_timestamp = clock.unix_timestamp as u64;
+        if current_timestamp > start_timestamp {
+            return Err(TokenDistributorError::InvalidStartTimestamp.into());
+        }
+        
+        // check empty state account has enough lamports
+        if !rent.is_exempt(lockup_schedule_state_account.lamports(), lockup_schedule_state_account.data_len()) {
+            return Err(TokenDistributorError::NotRentExempt.into());
+        }
+
+        // write lockup information to state account
+        let mut lockup_schedule_state = LockupSchedule::unpack_unchecked(&lockup_schedule_state_account.data.borrow())?;
+        lockup_schedule_state.is_initialized = true;
+        lockup_schedule_state.token_mint = *token_mint.key;
+        lockup_schedule_state.start_timestamp = start_timestamp;
+        lockup_schedule_state.number_periods = total_unlock_periods;
+        lockup_schedule_state.period_duration = period_duration;
+        lockup_schedule_state.total_token_quantity = total_lockup_quantity;
+        lockup_schedule_state.token_quantity_locked = 0;
+        LockupSchedule::pack(lockup_schedule_state, &mut lockup_schedule_state_account.data.borrow_mut())?;
 
         Ok(())
     }
