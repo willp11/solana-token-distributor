@@ -11,7 +11,7 @@ pub enum TokenDistributorInstruction {
     CreateLockupSchedule {
         start_timestamp: u64,
         total_unlock_periods: u32,
-        period_duration: u64,
+        period_duration: u64, // in seconds
         total_lockup_quantity: u64
     },
 
