@@ -15,6 +15,12 @@ pub enum TokenDistributorError {
         // Invalid start timestamp
         #[error("Invalid start timestamp")]
         InvalidStartTimestamp,
+        // Invalid mint
+        #[error("Invalid mint")]
+        InvalidMint,
+        // Expected amount mismatch - wrong number of tokens in temporary token account
+        #[error("Expected amount mismatch")]
+        ExpectedAmountMismatch
 }
 
 impl From<TokenDistributorError> for ProgramError {
