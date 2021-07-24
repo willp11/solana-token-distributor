@@ -47,7 +47,6 @@ pub enum TokenDistributorInstruction {
 impl TokenDistributorInstruction {
     pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
         let (tag, rest) = input.split_first().ok_or(InvalidInstruction)?;
-
         Ok(match tag {
             0 => Self::CreateLockupSchedule {
                 start_timestamp: Self::unpack_start_timestamp(rest)?,
