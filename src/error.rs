@@ -23,7 +23,10 @@ pub enum TokenDistributorError {
         ExpectedAmountMismatch,
         // Unauthorized receiving account
         #[error("Unauthorized receiving account")]
-        UnauthorizedAccount
+        UnauthorizedAccount,
+        // Incorrect schedule state account
+        #[error("Incorrect schedule state account")]
+        IncorrectSchedule
 }
 
 impl From<TokenDistributorError> for ProgramError {
