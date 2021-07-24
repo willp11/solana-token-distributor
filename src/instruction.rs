@@ -12,7 +12,7 @@ pub enum TokenDistributorInstruction {
     // 4. [] rent sysvar
     CreateLockupSchedule {
         start_timestamp: u64,
-        total_unlock_periods: u32,
+        total_unlock_periods: u64,
         period_duration: u64, // in seconds
         total_lockup_quantity: u64
     },
@@ -68,8 +68,8 @@ impl TokenDistributorInstruction {
         let start_timestamp = input.get(..8).and_then(|slice| slice.try_into().ok()).map(u64::from_le_bytes).ok_or(InvalidInstruction)?;
         Ok(start_timestamp)
     }
-    fn unpack_total_unlock_periods(input: &[u8]) -> Result<u32, ProgramError> {
-        let total_unlock_periods = input.get(8..12).and_then(|slice| slice.try_into().ok()).map(u32::from_le_bytes).ok_or(InvalidInstruction)?;
+    fn unpack_total_unlock_periods(input: &[u8]) -> Result<u64, ProgramError> {
+        let total_unlock_periods = input.get(8..12).and_then(|slice| slice.try_into().ok()).map(u64::from_le_bytes).ok_or(InvalidInstruction)?;
         Ok(total_unlock_periods)
     }
     fn unpack_period_duration(input: &[u8]) -> Result<u64, ProgramError> {

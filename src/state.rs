@@ -13,7 +13,7 @@ pub struct LockupSchedule {
     pub is_initialized: bool,
     pub token_mint: Pubkey,
     pub start_timestamp: u64,
-    pub number_periods: u32,
+    pub number_periods: u64,
     pub period_duration: u64,
     pub total_token_quantity: u64,
     pub token_quantity_locked: u64
@@ -28,8 +28,8 @@ impl IsInitialized for LockupSchedule {
 }
 
 impl Pack for LockupSchedule {
-    // is_intialized=1, mint=32, start_timestamp=8, number_periods=4, duration=8, total_quantity=8, quantity_locked=8
-    const LEN: usize = 69;
+    // is_intialized=1, mint=32, start_timestamp=8, number_periods=8, duration=8, total_quantity=8, quantity_locked=8
+    const LEN: usize = 73;
 
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
         let src = array_ref![src, 0, LockupSchedule::LEN];
@@ -41,7 +41,7 @@ impl Pack for LockupSchedule {
             period_duration,
             total_token_quantity,
             token_quantity_locked
-        ) = array_refs![src, 1, 32, 8, 4, 8, 8, 8];
+        ) = array_refs![src, 1, 32, 8, 8, 8, 8, 8];
         let is_initialized = match is_initialized {
             [0] => false,
             [1] => true,
@@ -52,7 +52,7 @@ impl Pack for LockupSchedule {
             is_initialized,
             token_mint: Pubkey::new_from_array(*token_mint),
             start_timestamp: u64::from_le_bytes(*start_timestamp),
-            number_periods: u32::from_le_bytes(*number_periods),
+            number_periods: u64::from_le_bytes(*number_periods),
             period_duration: u64::from_le_bytes(*period_duration),
             total_token_quantity: u64::from_le_bytes(*total_token_quantity),
             token_quantity_locked: u64::from_le_bytes(*token_quantity_locked)
@@ -69,7 +69,7 @@ impl Pack for LockupSchedule {
             period_duration_dst,
             total_token_quantity_dst,
             token_quantity_locked_dst
-        ) = mut_array_refs![dst, 1, 32, 8, 4, 8, 8, 8];
+        ) = mut_array_refs![dst, 1, 32, 8, 8, 8, 8, 8];
 
         let LockupSchedule {
             is_initialized,
@@ -98,7 +98,7 @@ pub struct Lockup {
     pub receiving_account: Pubkey,
     pub lockup_token_account: Pubkey,
     pub token_quantity: u64,
-    pub periods_redeemed: u32
+    pub periods_redeemed: u64
 }
 
 impl Sealed for Lockup {}
@@ -110,8 +110,8 @@ impl IsInitialized for Lockup {
 }
 
 impl Pack for Lockup {
-    // is_intialized=1, lockup_schedule_state=32, receiving_account=32, lockup_token_account=32, token_quantity=8, periods_redeemed=4
-    const LEN: usize = 109;
+    // is_intialized=1, lockup_schedule_state=32, receiving_account=32, lockup_token_account=32, token_quantity=8, periods_redeemed=8
+    const LEN: usize = 113;
 
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
         let src = array_ref![src, 0, Lockup::LEN];
@@ -122,7 +122,7 @@ impl Pack for Lockup {
             lockup_token_account,
             token_quantity,
             periods_redeemed
-        ) = array_refs![src, 1, 32, 32, 32, 8, 4];
+        ) = array_refs![src, 1, 32, 32, 32, 8, 8];
         let is_initialized = match is_initialized {
             [0] => false,
             [1] => true,
@@ -135,7 +135,7 @@ impl Pack for Lockup {
             receiving_account: Pubkey::new_from_array(*receiving_account),
             lockup_token_account: Pubkey::new_from_array(*lockup_token_account),
             token_quantity: u64::from_le_bytes(*token_quantity),
-            periods_redeemed: u32::from_le_bytes(*periods_redeemed)
+            periods_redeemed: u64::from_le_bytes(*periods_redeemed)
         })
     }
 
@@ -148,7 +148,7 @@ impl Pack for Lockup {
             lockup_token_account_dst,
             token_quantity_dst,
             periods_redeemed_dst
-        ) = mut_array_refs![dst, 1, 32, 32, 32, 8, 4];
+        ) = mut_array_refs![dst, 1, 32, 32, 32, 8, 8];
 
         let Lockup {
             is_initialized,
