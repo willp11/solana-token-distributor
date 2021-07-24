@@ -16,8 +16,14 @@ const CreateLockupSchedule = () => {
     })
 
     const inputHandler = (e) => {
+        let newValue = e.target.value;
+        // if date, convert to seconds
+        if (e.target.name == "startTimestamp") {
+            let timestamp = new Date(newValue).getTime();
+            newValue = timestamp / 1000;
+        }
         let state = {...formData};
-        state[e.target.name] = e.target.value;
+        state[e.target.name] = newValue;
         setFormData(state);
     }
 
@@ -25,7 +31,6 @@ const CreateLockupSchedule = () => {
         if (reduxState.wallet == null) {
             alert("Connect to wallet");
         } else {
-            console.log("Sending tx...");
             const lockupSchedule = await createLockupSchedule(
                 reduxState.program_id,
                 reduxState.wallet,
@@ -42,11 +47,12 @@ const CreateLockupSchedule = () => {
     return (
         <div className="CreateLockupSchedule">
             <h2>Create Lockup Schedule</h2>
-            <input type="number" name="startTimestamp" placeholder="start timestamp (seconds)" onChange={e=>inputHandler(e)}/> <br/>
-            <input type="number" name="totalUnlockPeriods" placeholder="total unlock periods"/> <br/>
-            <input type="number" name="periodDuration" placeholder="period duration (seconds)" /> <br/>
-            <input type="number" name="totalLockupQuantity" placeholder="total lockup quantity" /> <br/>
-            <input type="text" name="tokenMintPubkey" placeholder="token mint public key (base58)" /> <br/>
+            <h3>Start Date and Time (your local time)</h3>
+            <input type="datetime-local" name="startTimestamp" onChange={e=>inputHandler(e)}/> <br/>
+            <input type="number" name="totalUnlockPeriods" placeholder="total unlock periods" onChange={e=>inputHandler(e)}/> <br/>
+            <input type="number" name="periodDuration" placeholder="period duration (seconds)" onChange={e=>inputHandler(e)}/> <br/>
+            <input type="number" name="totalLockupQuantity" placeholder="total lockup quantity" onChange={e=>inputHandler(e)}/> <br/>
+            <input type="text" name="tokenMintPubkey" placeholder="token mint public key (base58)" onChange={e=>inputHandler(e)}/> <br/>
             <button onClick={submitHandler}>Send tx</button>
         </div>
     );

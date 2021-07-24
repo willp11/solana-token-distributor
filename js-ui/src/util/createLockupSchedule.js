@@ -62,6 +62,8 @@ export const createLockupSchedule = async (
     tx.recentBlockhash = blockhash;
     tx.feePayer = wallet.publicKey;
     let signed = await wallet.signTransaction(tx);
+
+    console.log("sending tx...")
     let txid = await connection.sendRawTransaction(signed.serialize());
 
     await connection.confirmTransaction(txid);
