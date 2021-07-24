@@ -13,7 +13,7 @@ export const createLockupSchedule = async (
     tokenMintString
 ) => {
 
-    const connection = new Connection("https://devnet.solana.com", 'singleGossip');
+    const connection = new Connection("http://localhost:8899", 'confirmed');
     
     // Accounts expected:
     // 0. [signer] initializer (wallet)
@@ -23,7 +23,7 @@ export const createLockupSchedule = async (
     const programId = new PublicKey(programIdString);
     const createLockupScheduleStateAccountIx = SystemProgram.createAccount({
         space: LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT.span,
-        lamports: await connection.getMinimumBalanceForRentExemption(LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT.span, 'singleGossip'),
+        lamports: await connection.getMinimumBalanceForRentExemption(LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT.span, 'confirmed'),
         fromPubkey: wallet.publicKey,
         newAccountPubkey: lockupScheduleStateAccount.publicKey,
         programId: programId
@@ -58,17 +58,19 @@ export const createLockupSchedule = async (
         createLockupScheduleIx
     );
 
+    console.log("sending tx...")
     let { blockhash } = await connection.getRecentBlockhash();
+    let partial_signers = [lockupScheduleStateAccount];
     tx.recentBlockhash = blockhash;
     tx.feePayer = wallet.publicKey;
+    tx.partialSign(...partial_signers);
     let signed = await wallet.signTransaction(tx);
-
-    console.log("sending tx...")
     let txid = await connection.sendRawTransaction(signed.serialize());
+    console.log("tx confirmed")
 
     await connection.confirmTransaction(txid);
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    const encodedLockupScheduleState = (await connection.getAccountInfo(lockupScheduleStateAccount.publicKey, 'singleGossip')).data;
+    const encodedLockupScheduleState = (await connection.getAccountInfo(lockupScheduleStateAccount.publicKey, 'confirmed')).data;
     const decodedLockupScheduleState = LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT.decode(encodedLockupScheduleState);
 
     const lockupScheduleStateObj = {
