@@ -64,5 +64,20 @@ export const createLockupSchedule = async (
     let signed = await wallet.signTransaction(tx);
     let txid = await connection.sendRawTransaction(signed.serialize());
 
-    return txid;
+    await connection.confirmTransaction(txid);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const encodedLockupScheduleState = (await connection.getAccountInfo(lockupScheduleStateAccount.publicKey, 'singleGossip')).data;
+    const decodedLockupScheduleState = LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT.decode(encodedLockupScheduleState);
+
+    const lockupScheduleStateObj = {
+        isInitialized: new BN(decodedLockupScheduleState.isInitialized, 10, "le").toNumber(),
+        tokenMint: new PublicKey(decodedLockupScheduleState.tokenMint).toBase58(),
+        startTimestamp: new BN(decodedLockupScheduleState.startTimestamp, 10, "le").toNumber(),
+        numberPeriods: new BN(decodedLockupScheduleState.numberPeriods, 10, "le").toNumber(),
+        periodDuration: new BN(decodedLockupScheduleState.periodDuration, 10, "le").toNumber(),
+        totalTokenQuantity: new BN(decodedLockupScheduleState.totalTokenQuantity, 10, "le").toNumber(),
+        tokenQuantityLocked: new BN(decodedLockupScheduleState.tokenQuantityLocked, 10, "le").toNumber()
+    }
+
+    return lockupScheduleStateObj;
 }
