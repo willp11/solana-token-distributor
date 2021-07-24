@@ -1,5 +1,6 @@
 use solana_program::program_error::ProgramError;
 use crate::error::TokenDistributorError::InvalidInstruction;
+use std::convert::TryInto;
 
 pub enum TokenDistributorInstruction {
 
@@ -68,7 +69,7 @@ impl TokenDistributorInstruction {
         Ok(start_timestamp)
     }
     fn unpack_total_unlock_periods(input: &[u8]) -> Result<u32, ProgramError> {
-        let total_unlock_periods = input.get(8..12).and_then(|slice| slice.try_into().ok()).map(u64::from_le_bytes).ok_or(InvalidInstruction)?;
+        let total_unlock_periods = input.get(8..12).and_then(|slice| slice.try_into().ok()).map(u32::from_le_bytes).ok_or(InvalidInstruction)?;
         Ok(total_unlock_periods)
     }
     fn unpack_period_duration(input: &[u8]) -> Result<u64, ProgramError> {

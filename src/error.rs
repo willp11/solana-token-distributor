@@ -20,7 +20,10 @@ pub enum TokenDistributorError {
         InvalidMint,
         // Expected amount mismatch - wrong number of tokens in temporary token account
         #[error("Expected amount mismatch")]
-        ExpectedAmountMismatch
+        ExpectedAmountMismatch,
+        // Unauthorized receiving account
+        #[error("Unauthorized receiving account")]
+        UnauthorizedAccount
 }
 
 impl From<TokenDistributorError> for ProgramError {
