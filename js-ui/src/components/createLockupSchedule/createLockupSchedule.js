@@ -1,6 +1,7 @@
 import './createLockupSchedule.css';
 import { useSelector } from "react-redux";
 import { useState } from 'react';
+import { createLockupSchedule } from '../../util/createLockupSchedule';
 
 const CreateLockupSchedule = () => {
 
@@ -20,11 +21,21 @@ const CreateLockupSchedule = () => {
         setFormData(state);
     }
 
-    const submitHandler = () => {
+    const submitHandler = async () => {
         if (reduxState.wallet == null) {
             alert("Connect to wallet");
         } else {
-            console.log(reduxState.wallet, formData);
+            console.log("Sending tx...");
+            const lockupSchedule = await createLockupSchedule(
+                reduxState.program_id,
+                reduxState.wallet,
+                formData.startTimestamp,
+                formData.totalUnlockPeriods,
+                formData.periodDuration,
+                formData.totalLockupQuantity,
+                formData.tokenMintPubkey
+            );
+            console.log(lockupSchedule);
         }
     }
     
