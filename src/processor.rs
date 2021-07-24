@@ -4,15 +4,17 @@ use solana_program::{
     program_error::ProgramError,
     msg,
     pubkey::Pubkey,
-    program_pack::{Pack, IsInitialized},
+    program_pack::{Pack},
     sysvar::{rent::Rent, Sysvar},
     program::{invoke, invoke_signed},
     clock::{Clock}
 };
 
+use std::cmp;
+
 use spl_token::state::Account as TokenAccount;
 
-use crate::{instruction::TokenDistributorInstruction, state::LockupSchedule, state::Lockup}
+use crate::{instruction::TokenDistributorInstruction, state::LockupSchedule, state::Lockup, error::TokenDistributorError};
 
 pub struct Processor;
 impl Processor {
@@ -26,22 +28,21 @@ impl Processor {
             },
             TokenDistributorInstruction::LockTokens {token_quantity} => {
                 msg!("Instruction: LockTokens");
-                Self::process_lock_tokens(accounts, token_quantity, program_id)
+                Self::process_lock_tokens(accounts, program_id, token_quantity)
             },
             TokenDistributorInstruction::RedeemTokens {} => {
                 msg!("Instruction: RedeemTokens");
                 Self::process_redeem_tokens(accounts, program_id)
-            },
-            _ => return Err(ProgramError::InvalidInstructionData);
+            }
         }
     }
 
     // CREATE LOCKUP SCHEDULE
     fn process_create_lockup_schedule(
         accounts: &[AccountInfo],
-        program_id: &Pubkey,
+        _program_id: &Pubkey,
         start_timestamp: u64,
-        total_unlock_periods: u32,
+        total_unlock_periods: u64,
         period_duration: u64,
         total_lockup_quantity: u64
     ) -> ProgramResult {
@@ -52,7 +53,12 @@ impl Processor {
         let lockup_schedule_state_account = next_account_info(account_info_iter)?;
         let token_mint = next_account_info(account_info_iter)?;
         let clock_sysvar = next_account_info(account_info_iter)?;
-        let rent_sysvar = next_account_info(account_info_iter)?;
+        let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
+
+        // check the initializer signed the tx
+        if !initializer.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
 
         // check the start timestamp is after current timestamp
         let clock = &Clock::from_account_info(clock_sysvar)?;
@@ -96,7 +102,7 @@ impl Processor {
         let temp_token_account = next_account_info(account_info_iter)?;
         let token_program = next_account_info(account_info_iter)?;
         let clock_sysvar = next_account_info(account_info_iter)?;
-        let rent_sysvar = next_account_info(account_info_iter)?;
+        let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
 
         // check the initializer signed the tx
         if !initializer.is_signer {
@@ -152,7 +158,7 @@ impl Processor {
         )?;
 
         // unpack empty state account
-        let mut lockup_state = Lockup::unpack_unchecked(&lockup_state_account.data.borrow())?;
+        let mut lockup_state = Lockup::unpack_unchecked(&empty_state_account.data.borrow())?;
 
         // write lockup information to the empty state account
         lockup_state.is_initialized = true;
@@ -166,7 +172,7 @@ impl Processor {
         lockup_schedule_state.token_quantity_locked += token_quantity;
 
         // pack the state accounts
-        Lockup::pack(lockup_state, &mut lockup_state_account.data.borrow_mut())?;
+        Lockup::pack(lockup_state, &mut empty_state_account.data.borrow_mut())?;
         LockupSchedule::pack(lockup_schedule_state, &mut lockup_schedule_state_account.data.borrow_mut())?;
 
         Ok(())
@@ -178,14 +184,116 @@ impl Processor {
         program_id: &Pubkey
     ) -> ProgramResult {
 
-        // // get accounts
-        // let account_info_iter = &mut accounts.iter();
-        // let receiving_account = next_account_info(account_info_iter)?;
+        // get accounts
+        let account_info_iter = &mut accounts.iter();
+        let receiving_account = next_account_info(account_info_iter)?;
+        let lockup_schedule_state_account = next_account_info(account_info_iter)?;
+        let lockup_state_account = next_account_info(account_info_iter)?;
+        let lockup_token_account = next_account_info(account_info_iter)?;
+        let receiving_token_account = next_account_info(account_info_iter)?;
+        let pda_account = next_account_info(account_info_iter)?;
+        let token_program = next_account_info(account_info_iter)?;
+        let clock_sysvar = next_account_info(account_info_iter)?;
+        let clock = &Clock::from_account_info(clock_sysvar)?;
+        let current_timestamp = clock.unix_timestamp as u64;
 
-        // // check the initializer signed the tx
-        // if !receiving_account.is_signer {
-        //     return Err(ProgramError::MissingRequiredSignature);
-        // }
+        // check the initializer signed the tx
+        if !receiving_account.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+
+        // unpack lockup state account
+        let mut lockup_state = Lockup::unpack_unchecked(&lockup_state_account.data.borrow())?;
+
+        // check receiving account is same as written in lockup state
+        if *receiving_account.key != lockup_state.receiving_account {
+            return Err(TokenDistributorError::UnauthorizedAccount.into());
+        }
+
+        // check lockup schedule state account is same as written in lockup state
+        if *lockup_schedule_state_account.key != lockup_state.lockup_schedule_state {
+            return Err(TokenDistributorError::IncorrectSchedule.into());
+        }
+
+        // unpack lockup schedule state
+        let lockup_schedule_state = LockupSchedule::unpack_unchecked(&lockup_schedule_state_account.data.borrow())?;
+
+        // check receiving token account has same mint as written in lockup schedule state
+        // unpack temp token account data
+        let receiving_token_account_info = TokenAccount::unpack(&receiving_token_account.data.borrow())?;
+
+        // check temp token account has same mint as written in lockup schedule state
+        if receiving_token_account_info.mint != lockup_schedule_state.token_mint {
+            return Err(TokenDistributorError::InvalidMint.into());
+        }
+
+        // CALCULATE NO. TOKENS TO REDEEM
+        // max no. periods to redeem = total no. periods - periods redeemed
+        let max_periods_to_redeem = lockup_schedule_state.number_periods - lockup_state.periods_redeemed;
+        // no. periods unlocked = (current_timestamp - lockup_schedule.start_timestamp) / lockup_schedule.period_duration
+        let periods_unlocked = (current_timestamp - lockup_schedule_state.start_timestamp) / lockup_schedule_state.period_duration;
+        // no. periods to redeem = min(max no. periods to redeem, no. periods unlocked)
+        let periods_to_redeem = cmp::min(max_periods_to_redeem, periods_unlocked);
+        // no. tokens per period = lockup.token_quantity / lockup_schedule.number_periods
+        let tokens_per_period = lockup_state.token_quantity / lockup_schedule_state.number_periods;
+        // no. tokens to redeem = no. periods to redeem * no. tokens per period
+        let tokens_to_redeem = periods_to_redeem * tokens_per_period;
+
+        // INSTRUCTION: send tokens from the lockup token account to receiving token account, quantity = no. tokens to redeem
+        let (pda, bump_seed) = Pubkey::find_program_address(&[b"tokenDistributor"], program_id);
+        // send stake from buyer temp account
+        let transfer_to_receiver_ix = spl_token::instruction::transfer(
+            token_program.key, 
+            lockup_token_account.key, // src = lockup token account
+            receiving_token_account.key, // dst = receiving token account
+            &pda, 
+            &[&pda], 
+            tokens_to_redeem, // quantity 
+        )?;
+        msg!("Calling the token program to transfer tokens from buyer temp to new temp token account...");
+        invoke_signed(
+            &transfer_to_receiver_ix,
+            &[
+                token_program.clone(),
+                lockup_token_account.clone(),
+                receiving_token_account.clone(),
+                pda_account.clone(),
+            ],
+            &[&[&b"tokenDistributor"[..], &[bump_seed]]],
+        )?;
+
+        // decrement the number of periods redeemed in state
+        lockup_state.periods_redeemed -= periods_to_redeem;
+
+        // check if all periods have been redeemed
+        if lockup_state.periods_redeemed == lockup_schedule_state.number_periods {
+            // check lockup token account is empty
+            let lockup_token_account_info = TokenAccount::unpack(&lockup_token_account.data.borrow())?;
+            let lockup_tokens_remaining = lockup_token_account_info.amount;
+            // if any remaining, send to the receiving token account
+            if lockup_tokens_remaining != 0 {
+                let transfer_remaining_to_receiver_ix = spl_token::instruction::transfer(
+                    token_program.key, 
+                    lockup_token_account.key, // src = lockup token account
+                    receiving_token_account.key, // dst = receiving token account
+                    &pda, 
+                    &[&pda], 
+                    lockup_tokens_remaining, // quantity 
+                )?;
+                msg!("Calling the token program to transfer tokens from buyer temp to new temp token account...");
+                invoke_signed(
+                    &transfer_remaining_to_receiver_ix,
+                    &[
+                        token_program.clone(),
+                        lockup_token_account.clone(),
+                        receiving_token_account.clone(),
+                        pda_account.clone(),
+                    ],
+                    &[&[&b"tokenDistributor"[..], &[bump_seed]]],
+                )?;
+        
+            }
+        }   
 
         Ok(())
     }
