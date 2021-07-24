@@ -136,6 +136,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bpf-program-template"
+version = "0.1.0"
+dependencies = [
+ "arrayref",
+ "solana-program",
+ "spl-token",
+ "thiserror",
+]
+
+[[package]]
 name = "bs58"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -776,16 +786,6 @@ dependencies = [
  "quote",
  "rustversion",
  "syn",
-]
-
-[[package]]
-name = "solana-token-distributor"
-version = "0.1.0"
-dependencies = [
- "arrayref",
- "solana-program",
- "spl-token",
- "thiserror",
 ]
 
 [[package]]
