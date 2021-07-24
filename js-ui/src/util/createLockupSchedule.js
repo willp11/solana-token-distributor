@@ -1,5 +1,5 @@
 import { AccountLayout, Token, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { Account, Connection, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { Keypair, Connection, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY, SYSVAR_CLOCK_PUBKEY, Transaction, TransactionInstruction } from "@solana/web3.js";
 import BN from "bn.js";
 import {LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT} from '../util/layout';
 
@@ -13,13 +13,13 @@ export const createLockupSchedule = async (
     tokenMintString
 ) => {
 
-    const connection = new Connection("http://localhost:8899", 'confirmed');
+    const connection = new Connection("https://api.devnet.solana.com", 'confirmed');
     
     // Accounts expected:
     // 0. [signer] initializer (wallet)
 
     // 1. [writable] lockup schedule state (empty)
-    const lockupScheduleStateAccount = new Account();
+    const lockupScheduleStateAccount = new Keypair();
     const programId = new PublicKey(programIdString);
     const createLockupScheduleStateAccountIx = SystemProgram.createAccount({
         space: LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT.span,
@@ -58,15 +58,13 @@ export const createLockupSchedule = async (
         createLockupScheduleIx
     );
 
-    console.log("sending tx...")
     let { blockhash } = await connection.getRecentBlockhash();
-    let partial_signers = [lockupScheduleStateAccount];
     tx.recentBlockhash = blockhash;
     tx.feePayer = wallet.publicKey;
-    tx.partialSign(...partial_signers);
+    tx.sign(lockupScheduleStateAccount);
+
     let signed = await wallet.signTransaction(tx);
     let txid = await connection.sendRawTransaction(signed.serialize());
-    console.log("tx confirmed")
 
     await connection.confirmTransaction(txid);
     await new Promise((resolve) => setTimeout(resolve, 1000));
