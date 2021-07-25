@@ -17,8 +17,11 @@ export const createLockupSchedule = async (
     
     // Accounts expected:
     // 0. [signer] initializer (wallet)
-
     // 1. [writable] lockup schedule state (empty)
+    // 2. [] token mint
+    // 3. [] clock sysvar = SYSVAR_CLOCK_PUBKEY
+    // 4. [] rent sysvar = SYSVAR_RENT_PUBKEY
+
     const lockupScheduleStateAccount = new Keypair();
     const programId = new PublicKey(programIdString);
     const createLockupScheduleStateAccountIx = SystemProgram.createAccount({
@@ -28,11 +31,10 @@ export const createLockupSchedule = async (
         newAccountPubkey: lockupScheduleStateAccount.publicKey,
         programId: programId
     });
-
-    // 2. [] token mint
     const tokenMint = new PublicKey(tokenMintString);
-    // 3. [] clock sysvar = SYSVAR_CLOCK_PUBKEY
-    // 4. [] rent sysvar = SYSVAR_RENT_PUBKEY
+
+    console.log(programIdString, programId);
+    console.log(tokenMintString, tokenMint);
 
     const startTimestampBytes = new BN(startTimestamp).toArray("le", 8);
     const unlockPeriodsBytes = new BN(unlockPeriods).toArray("le", 8);
@@ -40,6 +42,8 @@ export const createLockupSchedule = async (
     const lockupQuantityBytes = new BN(lockupQuantity).toArray("le", 8);
 
     const data = Buffer.from(Uint8Array.of(0, ...startTimestampBytes, ...unlockPeriodsBytes, ...periodDurationBytes, ...lockupQuantityBytes));
+
+    console.log(data);
 
     const createLockupScheduleIx = new TransactionInstruction({
         programId: programId,
@@ -61,9 +65,9 @@ export const createLockupSchedule = async (
     let { blockhash } = await connection.getRecentBlockhash();
     tx.recentBlockhash = blockhash;
     tx.feePayer = wallet.publicKey;
-    tx.sign(lockupScheduleStateAccount);
-
+    tx.partialSign(lockupScheduleStateAccount);
     let signed = await wallet.signTransaction(tx);
+    console.log(signed.verifySignatures());
     let txid = await connection.sendRawTransaction(signed.serialize());
 
     await connection.confirmTransaction(txid);
