@@ -224,11 +224,17 @@ impl Processor {
 
         // CALCULATE NO. TOKENS TO REDEEM
         // max no. periods to redeem = total no. periods - periods redeemed
+        let periods_to_redeem: u64;
         let max_periods_to_redeem = lockup_schedule_state.number_periods - lockup_state.periods_redeemed;
-        // no. periods unlocked = (current_timestamp - lockup_schedule.start_timestamp) / lockup_schedule.period_duration
-        let periods_unlocked = (current_timestamp - lockup_schedule_state.start_timestamp) / lockup_schedule_state.period_duration;
-        // no. periods to redeem = min(max no. periods to redeem, no. periods unlocked)
-        let periods_to_redeem = cmp::min(max_periods_to_redeem, periods_unlocked);
+        if current_timestamp > lockup_schedule_state.start_timestamp {
+            // no. periods unlocked = (current_timestamp - lockup_schedule.start_timestamp) / lockup_schedule.period_duration
+            let periods_unlocked = (current_timestamp - lockup_schedule_state.start_timestamp) / lockup_schedule_state.period_duration;
+            // no. periods to redeem = min(max no. periods to redeem, no. periods unlocked)
+            periods_to_redeem = cmp::min(max_periods_to_redeem, periods_unlocked);
+        } else {
+            periods_to_redeem = 0;
+        }
+
         // no. tokens per period = lockup.token_quantity / lockup_schedule.number_periods
         let tokens_per_period = lockup_state.token_quantity / lockup_schedule_state.number_periods;
         // no. tokens to redeem = no. periods to redeem * no. tokens per period
@@ -244,7 +250,7 @@ impl Processor {
             &[&pda], 
             tokens_to_redeem, // quantity 
         )?;
-        msg!("Calling the token program to transfer tokens from buyer temp to new temp token account...");
+        msg!("Calling the token program to transfer tokens from lockup to receiving account");
         invoke_signed(
             &transfer_to_receiver_ix,
             &[
