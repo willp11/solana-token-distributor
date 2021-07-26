@@ -91,7 +91,7 @@ export const lockTokens = async (
     const encodedLockupState = (await connection.getAccountInfo(lockupStateAccount.publicKey, 'confirmed')).data;
     const decodedLockupState = LOCKUP_ACCOUNT_DATA_LAYOUT.decode(encodedLockupState);
 
-    const lockupScheduleStateObj = {
+    const lockupStateObj = {
         stateAccount: lockupStateAccount.publicKey.toBase58(),
         isInitialized: new BN(decodedLockupState.isInitialized, 10, "le").toNumber(),
         lockupScheduleState: new PublicKey(decodedLockupState.lockupScheduleState).toBase58(),
@@ -101,5 +101,5 @@ export const lockTokens = async (
         periodsRedeemed: new BN(decodedLockupState.periodsRedeemed, 10, "le").toNumber()
     }
 
-    return lockupScheduleStateObj;
+    return lockupStateObj;
 }

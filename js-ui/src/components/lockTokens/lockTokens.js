@@ -39,7 +39,6 @@ const LockTokens = () => {
         }
     }
 
-
     return (
         <div className="LockTokens">
             <h2>Lock Tokens</h2>
