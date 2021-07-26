@@ -14,7 +14,7 @@ pub enum TokenDistributorInstruction {
         start_timestamp: u64,
         total_unlock_periods: u64,
         period_duration: u64, // in seconds
-        total_lockup_quantity: u64
+        total_lockup_quantity: u64,
     },
 
     // Accounts expected:
@@ -27,7 +27,7 @@ pub enum TokenDistributorInstruction {
     // 6. [] clock sysvar
     // 7. [] rent sysvar
     LockTokens {
-        token_quantity: u64
+        token_quantity: u64,
     },
 
     // Accounts expected:
@@ -68,15 +68,15 @@ impl TokenDistributorInstruction {
         Ok(start_timestamp)
     }
     fn unpack_total_unlock_periods(input: &[u8]) -> Result<u64, ProgramError> {
-        let total_unlock_periods = input.get(8..12).and_then(|slice| slice.try_into().ok()).map(u64::from_le_bytes).ok_or(InvalidInstruction)?;
+        let total_unlock_periods = input.get(8..16).and_then(|slice| slice.try_into().ok()).map(u64::from_le_bytes).ok_or(InvalidInstruction)?;
         Ok(total_unlock_periods)
     }
     fn unpack_period_duration(input: &[u8]) -> Result<u64, ProgramError> {
-        let period_duration = input.get(12..20).and_then(|slice| slice.try_into().ok()).map(u64::from_le_bytes).ok_or(InvalidInstruction)?;
+        let period_duration = input.get(16..24).and_then(|slice| slice.try_into().ok()).map(u64::from_le_bytes).ok_or(InvalidInstruction)?;
         Ok(period_duration)
     }
     fn unpack_total_lockup_quantity(input: &[u8]) -> Result<u64, ProgramError> {
-        let total_lockup_quantity = input.get(20..28).and_then(|slice| slice.try_into().ok()).map(u64::from_le_bytes).ok_or(InvalidInstruction)?;
+        let total_lockup_quantity = input.get(24..32).and_then(|slice| slice.try_into().ok()).map(u64::from_le_bytes).ok_or(InvalidInstruction)?;
         Ok(total_lockup_quantity)
     }
 

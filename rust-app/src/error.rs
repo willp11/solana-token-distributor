@@ -26,7 +26,10 @@ pub enum TokenDistributorError {
         UnauthorizedAccount,
         // Incorrect schedule state account
         #[error("Incorrect schedule state account")]
-        IncorrectSchedule
+        IncorrectSchedule,
+        // Incorrect account owner
+        #[error("Incorrect account owner")]
+        IncorrectOwner,
 }
 
 impl From<TokenDistributorError> for ProgramError {

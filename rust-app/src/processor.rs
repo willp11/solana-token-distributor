@@ -22,13 +22,13 @@ impl Processor {
         
         let instruction = TokenDistributorInstruction::unpack(instruction_data)?;
         match instruction {
-            TokenDistributorInstruction::CreateLockupSchedule {start_timestamp, total_unlock_periods, period_duration, total_lockup_quantity} => {
+            TokenDistributorInstruction::CreateLockupSchedule {start_timestamp, total_unlock_periods, period_duration, total_lockup_quantity } => {
                 msg!("Instruction: CreateLockupSchedule");
-                Self::process_create_lockup_schedule(accounts, program_id, start_timestamp, total_unlock_periods, period_duration, total_lockup_quantity)
+                Self::process_create_lockup_schedule(accounts, start_timestamp, total_unlock_periods, period_duration, total_lockup_quantity, program_id)
             },
             TokenDistributorInstruction::LockTokens {token_quantity} => {
                 msg!("Instruction: LockTokens");
-                Self::process_lock_tokens(accounts, program_id, token_quantity)
+                Self::process_lock_tokens(accounts, token_quantity, program_id)
             },
             TokenDistributorInstruction::RedeemTokens {} => {
                 msg!("Instruction: RedeemTokens");
@@ -37,15 +37,15 @@ impl Processor {
         }
     }
 
-    // CREATE LOCKUP SCHEDULE
     fn process_create_lockup_schedule(
         accounts: &[AccountInfo],
-        _program_id: &Pubkey,
         start_timestamp: u64,
         total_unlock_periods: u64,
         period_duration: u64,
-        total_lockup_quantity: u64
+        total_lockup_quantity: u64,
+        program_id: &Pubkey,
     ) -> ProgramResult {
+        msg!("processing");
 
         // get accounts
         let account_info_iter = &mut accounts.iter();
@@ -66,7 +66,14 @@ impl Processor {
         if current_timestamp > start_timestamp {
             return Err(TokenDistributorError::InvalidStartTimestamp.into());
         }
+
+        msg!("check 3");
+        // check program id is owner of state account
+        if lockup_schedule_state_account.owner != program_id {
+            return Err(TokenDistributorError::IncorrectOwner.into());
+        }
         
+        msg!("check 4");
         // check empty state account has enough lamports
         if !rent.is_exempt(lockup_schedule_state_account.lamports(), lockup_schedule_state_account.data_len()) {
             return Err(TokenDistributorError::NotRentExempt.into());
@@ -89,8 +96,8 @@ impl Processor {
     // LOCK TOKENS
     fn process_lock_tokens(
         accounts: &[AccountInfo],
-        program_id: &Pubkey,
-        token_quantity: u64
+        token_quantity: u64,
+        program_id: &Pubkey
     ) -> ProgramResult {
 
         // get accounts
