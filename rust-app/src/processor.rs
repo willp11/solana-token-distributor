@@ -209,8 +209,8 @@ impl Processor {
         // unpack lockup state account
         let mut lockup_state = Lockup::unpack_unchecked(&lockup_state_account.data.borrow())?;
 
-        // check receiving account is same as written in lockup state
-        if *receiving_account.key != lockup_state.receiving_account {
+        // check receiving token account is same as written in lockup state
+        if *receiving_token_account.key != lockup_state.receiving_account {
             return Err(TokenDistributorError::UnauthorizedAccount.into());
         }
 
@@ -221,15 +221,6 @@ impl Processor {
 
         // unpack lockup schedule state
         let lockup_schedule_state = LockupSchedule::unpack_unchecked(&lockup_schedule_state_account.data.borrow())?;
-
-        // check receiving token account has same mint as written in lockup schedule state
-        // unpack temp token account data
-        let receiving_token_account_info = TokenAccount::unpack(&receiving_token_account.data.borrow())?;
-
-        // check temp token account has same mint as written in lockup schedule state
-        if receiving_token_account_info.mint != lockup_schedule_state.token_mint {
-            return Err(TokenDistributorError::InvalidMint.into());
-        }
 
         // CALCULATE NO. TOKENS TO REDEEM
         // max no. periods to redeem = total no. periods - periods redeemed
@@ -243,9 +234,8 @@ impl Processor {
         // no. tokens to redeem = no. periods to redeem * no. tokens per period
         let tokens_to_redeem = periods_to_redeem * tokens_per_period;
 
-        // INSTRUCTION: send tokens from the lockup token account to receiving token account, quantity = no. tokens to redeem
+        // INSTRUCTION: send tokens from the lockup token account to receiving token account
         let (pda, bump_seed) = Pubkey::find_program_address(&[b"tokenDistributor"], program_id);
-        // send stake from buyer temp account
         let transfer_to_receiver_ix = spl_token::instruction::transfer(
             token_program.key, 
             lockup_token_account.key, // src = lockup token account
@@ -298,6 +288,9 @@ impl Processor {
         
             }
         }   
+
+        // pack the lockup state accounts (lockup schedule state is unchanged)
+        Lockup::pack(lockup_state, &mut lockup_state_account.data.borrow_mut())?;
 
         Ok(())
     }
