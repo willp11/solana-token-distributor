@@ -13,7 +13,7 @@ export const createLockupSchedule = async (
     tokenMintString
 ) => {
 
-    const connection = new Connection("https://api.devnet.solana.com", 'confirmed');
+    const connection = new Connection("http://localhost:8899", 'confirmed');
     
     // Accounts expected:
     // 0. [signer] initializer (wallet)
@@ -24,6 +24,7 @@ export const createLockupSchedule = async (
 
     const lockupScheduleStateAccount = new Keypair();
     const programId = new PublicKey(programIdString);
+    
     const createLockupScheduleStateAccountIx = SystemProgram.createAccount({
         space: LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT.span,
         lamports: await connection.getMinimumBalanceForRentExemption(LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT.span, 'confirmed'),
@@ -33,9 +34,6 @@ export const createLockupSchedule = async (
     });
     const tokenMint = new PublicKey(tokenMintString);
 
-    console.log(programIdString, programId);
-    console.log(tokenMintString, tokenMint);
-
     const startTimestampBytes = new BN(startTimestamp).toArray("le", 8);
     const unlockPeriodsBytes = new BN(unlockPeriods).toArray("le", 8);
     const periodDurationBytes = new BN(periodDuration).toArray("le", 8);
@@ -43,16 +41,14 @@ export const createLockupSchedule = async (
 
     const data = Buffer.from(Uint8Array.of(0, ...startTimestampBytes, ...unlockPeriodsBytes, ...periodDurationBytes, ...lockupQuantityBytes));
 
-    console.log(data);
-
     const createLockupScheduleIx = new TransactionInstruction({
         programId: programId,
         keys: [
             { pubkey: wallet.publicKey, isSigner: true, isWritable: false },
             { pubkey: lockupScheduleStateAccount.publicKey, isSigner: false, isWritable: true },
             { pubkey: tokenMint, isSigner: false, isWritable: false },
-            { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false},
-            { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false }
+            { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false},
+            { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }
         ],
         data: data
     });
@@ -67,7 +63,6 @@ export const createLockupSchedule = async (
     tx.feePayer = wallet.publicKey;
     tx.partialSign(lockupScheduleStateAccount);
     let signed = await wallet.signTransaction(tx);
-    console.log(signed.verifySignatures());
     let txid = await connection.sendRawTransaction(signed.serialize());
 
     await connection.confirmTransaction(txid);
@@ -76,6 +71,7 @@ export const createLockupSchedule = async (
     const decodedLockupScheduleState = LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT.decode(encodedLockupScheduleState);
 
     const lockupScheduleStateObj = {
+        stateAccount: lockupScheduleStateAccount.publicKey.toBase58(),
         isInitialized: new BN(decodedLockupScheduleState.isInitialized, 10, "le").toNumber(),
         tokenMint: new PublicKey(decodedLockupScheduleState.tokenMint).toBase58(),
         startTimestamp: new BN(decodedLockupScheduleState.startTimestamp, 10, "le").toNumber(),
