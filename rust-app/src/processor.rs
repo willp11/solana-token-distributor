@@ -45,7 +45,6 @@ impl Processor {
         total_lockup_quantity: u64,
         program_id: &Pubkey,
     ) -> ProgramResult {
-        msg!("processing");
 
         // get accounts
         let account_info_iter = &mut accounts.iter();
@@ -67,13 +66,11 @@ impl Processor {
             return Err(TokenDistributorError::InvalidStartTimestamp.into());
         }
 
-        msg!("check 3");
         // check program id is owner of state account
         if lockup_schedule_state_account.owner != program_id {
             return Err(TokenDistributorError::IncorrectOwner.into());
         }
         
-        msg!("check 4");
         // check empty state account has enough lamports
         if !rent.is_exempt(lockup_schedule_state_account.lamports(), lockup_schedule_state_account.data_len()) {
             return Err(TokenDistributorError::NotRentExempt.into());
