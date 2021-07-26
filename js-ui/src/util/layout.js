@@ -23,3 +23,12 @@ export const LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT = BufferLayout.struct([
     uint64("totalTokenQuantity"),
     uint64("tokenQuantityLocked")
   ]);
+
+  export const LOCKUP_ACCOUNT_DATA_LAYOUT = BufferLayout.struct([
+    BufferLayout.u8("isInitialized"),
+    publicKey("lockupScheduleState"),
+    publicKey("receivingAccount"),
+    publicKey("lockupTokenAccount"),
+    uint64("tokenQuantity"),
+    uint64("periodsRedeemed")
+  ]);
