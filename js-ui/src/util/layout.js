@@ -16,6 +16,7 @@ const uint64 = (property = "uint64") => {
 
 export const LOCKUP_SCHEDULE_ACCOUNT_DATA_LAYOUT = BufferLayout.struct([
     BufferLayout.u8("isInitialized"),
+    publicKey("initializer"),
     publicKey("tokenMint"),
     uint64("startTimestamp"),
     uint64("numberPeriods"),
