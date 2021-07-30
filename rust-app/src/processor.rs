@@ -51,7 +51,7 @@ impl Processor {
         let initializer = next_account_info(account_info_iter)?;
         let lockup_schedule_state_account = next_account_info(account_info_iter)?;
         let token_mint = next_account_info(account_info_iter)?;
-        let clock_sysvar = next_account_info(account_info_iter)?;
+        let clock = &Clock::from_account_info(next_account_info(account_info_iter)?)?;
         let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
 
         // check the initializer signed the tx
@@ -60,13 +60,12 @@ impl Processor {
         }
 
         // check the start timestamp is after current timestamp
-        let clock = &Clock::from_account_info(clock_sysvar)?;
         let current_timestamp = clock.unix_timestamp as u64;
         if current_timestamp > start_timestamp {
             return Err(TokenDistributorError::InvalidStartTimestamp.into());
         }
 
-        // check program id is owner of state account
+        // check program is owner of state account
         if lockup_schedule_state_account.owner != program_id {
             return Err(TokenDistributorError::IncorrectOwner.into());
         }
@@ -79,6 +78,7 @@ impl Processor {
         // write lockup information to state account
         let mut lockup_schedule_state = LockupSchedule::unpack_unchecked(&lockup_schedule_state_account.data.borrow())?;
         lockup_schedule_state.is_initialized = true;
+        lockup_schedule_state.initializer = *initializer.key;
         lockup_schedule_state.token_mint = *token_mint.key;
         lockup_schedule_state.start_timestamp = start_timestamp;
         lockup_schedule_state.number_periods = total_unlock_periods;
@@ -105,12 +105,23 @@ impl Processor {
         let receiver_account = next_account_info(account_info_iter)?;
         let temp_token_account = next_account_info(account_info_iter)?;
         let token_program = next_account_info(account_info_iter)?;
-        let clock_sysvar = next_account_info(account_info_iter)?;
+        let clock = &Clock::from_account_info(next_account_info(account_info_iter)?)?;
         let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
 
         // check the initializer signed the tx
         if !initializer.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
+        }
+
+        // check token program has correct program id
+        spl_token::check_program_account(token_program.key)?;
+
+        // check program owns the state accounts
+        if lockup_schedule_state_account.owner != program_id {
+            return Err(TokenDistributorError::IncorrectOwner.into());
+        }
+        if empty_state_account.owner != program_id {
+            return Err(TokenDistributorError::IncorrectOwner.into());
         }
 
         // check empty state account has enough lamports to ensure it doesn't get closed by the runtime
@@ -119,10 +130,14 @@ impl Processor {
         }
 
         // unpack the lockup schedule state
-        let mut lockup_schedule_state = LockupSchedule::unpack_unchecked(&lockup_schedule_state_account.data.borrow())?;
+        let mut lockup_schedule_state = LockupSchedule::unpack(&lockup_schedule_state_account.data.borrow())?;
+
+        // check signer is initializer in lockup schedule
+        if *initializer.key != lockup_schedule_state.initializer {
+            return Err(TokenDistributorError::IncorrectOwner.into());
+        }
         
         // check current time is before lockup start time
-        let clock = &Clock::from_account_info(clock_sysvar)?;
         let current_timestamp = clock.unix_timestamp as u64;
         if current_timestamp > lockup_schedule_state.start_timestamp {
             return Err(TokenDistributorError::InvalidStartTimestamp.into());
@@ -206,11 +221,26 @@ impl Processor {
             return Err(ProgramError::MissingRequiredSignature);
         }
 
+        // check token program has correct program id
+        spl_token::check_program_account(token_program.key)?;
+
+        // check program owns the state accounts
+        if lockup_schedule_state_account.owner != program_id {
+            return Err(TokenDistributorError::IncorrectOwner.into());
+        }
+        if lockup_state_account.owner != program_id {
+            return Err(TokenDistributorError::IncorrectOwner.into());
+        }
+        // check program owns the PDA
+        if pda_account.owner != program_id {
+            return Err(TokenDistributorError::IncorrectOwner.into());
+        }
+
         // unpack lockup state account
         let mut lockup_state = Lockup::unpack_unchecked(&lockup_state_account.data.borrow())?;
 
-        // check receiving token account is same as written in lockup state
-        if *receiving_token_account.key != lockup_state.receiving_account {
+        // check signer is same as receiving account in lockup state
+        if *receiving_account.key != lockup_state.receiving_account {
             return Err(TokenDistributorError::UnauthorizedAccount.into());
         }
 
@@ -227,8 +257,8 @@ impl Processor {
         let periods_to_redeem: u64;
         let max_periods_to_redeem = lockup_schedule_state.number_periods - lockup_state.periods_redeemed;
         if current_timestamp > lockup_schedule_state.start_timestamp {
-            // no. periods unlocked = (current_timestamp - lockup_schedule.start_timestamp) / lockup_schedule.period_duration
-            let periods_unlocked = (current_timestamp - lockup_schedule_state.start_timestamp) / lockup_schedule_state.period_duration;
+            // no. periods unlocked not already redeemed = ((current_timestamp - lockup_schedule.start_timestamp) / lockup_schedule.period_duration) - lockup_state.periods_redeemed
+            let periods_unlocked = ((current_timestamp - lockup_schedule_state.start_timestamp) / lockup_schedule_state.period_duration) - lockup_state.periods_redeemed;
             // no. periods to redeem = min(max no. periods to redeem, no. periods unlocked)
             periods_to_redeem = cmp::min(max_periods_to_redeem, periods_unlocked);
         } else {
@@ -262,8 +292,8 @@ impl Processor {
             &[&[&b"tokenDistributor"[..], &[bump_seed]]],
         )?;
 
-        // decrement the number of periods redeemed in state
-        lockup_state.periods_redeemed -= periods_to_redeem;
+        // increment the number of periods redeemed in state
+        lockup_state.periods_redeemed += periods_to_redeem;
 
         // check if all periods have been redeemed
         if lockup_state.periods_redeemed == lockup_schedule_state.number_periods {

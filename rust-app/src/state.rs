@@ -11,6 +11,7 @@ use crate::error::TokenDistributorError;
 // LOCKUP SCHEDULE STATE
 pub struct LockupSchedule {
     pub is_initialized: bool,
+    pub initializer: Pubkey,
     pub token_mint: Pubkey,
     pub start_timestamp: u64,
     pub number_periods: u64,
@@ -28,20 +29,21 @@ impl IsInitialized for LockupSchedule {
 }
 
 impl Pack for LockupSchedule {
-    // is_intialized=1, mint=32, start_timestamp=8, number_periods=8, duration=8, total_quantity=8, quantity_locked=8
-    const LEN: usize = 73;
+    // is_intialized=1, initializer=32, mint=32, start_timestamp=8, number_periods=8, duration=8, total_quantity=8, quantity_locked=8
+    const LEN: usize = 105;
 
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
         let src = array_ref![src, 0, LockupSchedule::LEN];
         let (
             is_initialized,
+            initializer,
             token_mint,
             start_timestamp,
             number_periods,
             period_duration,
             total_token_quantity,
             token_quantity_locked
-        ) = array_refs![src, 1, 32, 8, 8, 8, 8, 8];
+        ) = array_refs![src, 1, 32, 32, 8, 8, 8, 8, 8];
         let is_initialized = match is_initialized {
             [0] => false,
             [1] => true,
@@ -50,6 +52,7 @@ impl Pack for LockupSchedule {
 
         Ok(LockupSchedule {
             is_initialized,
+            initializer: Pubkey::new_from_array(*initializer),
             token_mint: Pubkey::new_from_array(*token_mint),
             start_timestamp: u64::from_le_bytes(*start_timestamp),
             number_periods: u64::from_le_bytes(*number_periods),
@@ -63,16 +66,18 @@ impl Pack for LockupSchedule {
         let dst = array_mut_ref![dst, 0, LockupSchedule::LEN];
         let (
             is_initialized_dst,
+            initializer_dst,
             token_mint_dst,
             start_timestamp_dst,
             number_periods_dst,
             period_duration_dst,
             total_token_quantity_dst,
             token_quantity_locked_dst
-        ) = mut_array_refs![dst, 1, 32, 8, 8, 8, 8, 8];
+        ) = mut_array_refs![dst, 1, 32, 32, 8, 8, 8, 8, 8];
 
         let LockupSchedule {
             is_initialized,
+            initializer,
             token_mint,
             start_timestamp,
             number_periods,
@@ -82,6 +87,7 @@ impl Pack for LockupSchedule {
         } = self;
 
         is_initialized_dst[0] = *is_initialized as u8;
+        initializer_dst.copy_from_slice(initializer.as_ref());
         token_mint_dst.copy_from_slice(token_mint.as_ref());
         *start_timestamp_dst = start_timestamp.to_le_bytes();
         *number_periods_dst = number_periods.to_le_bytes();
