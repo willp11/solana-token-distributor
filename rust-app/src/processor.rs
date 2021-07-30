@@ -54,7 +54,6 @@ impl Processor {
         let clock = &Clock::from_account_info(next_account_info(account_info_iter)?)?;
         let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
 
-        msg!("checkpoint - 1");
         // check the initializer signed the tx
         if !initializer.is_signer {
             return Err(ProgramError::MissingRequiredSignature);
@@ -65,9 +64,7 @@ impl Processor {
         if current_timestamp > start_timestamp {
             return Err(TokenDistributorError::InvalidStartTimestamp.into());
         }
-        msg!("checkpoint - 2");
-        msg!("lockup_schedule_state_account.owner: {:?}", lockup_schedule_state_account.owner);
-        msg!("program_id: {:?}", program_id);
+
         // check program is owner of state account
         if lockup_schedule_state_account.owner != program_id {
             return Err(TokenDistributorError::IncorrectOwner.into());
@@ -77,7 +74,7 @@ impl Processor {
         if !rent.is_exempt(lockup_schedule_state_account.lamports(), lockup_schedule_state_account.data_len()) {
             return Err(TokenDistributorError::NotRentExempt.into());
         }
-        msg!("checkpoint - 3");
+
         // write lockup information to state account
         let mut lockup_schedule_state = LockupSchedule::unpack_unchecked(&lockup_schedule_state_account.data.borrow())?;
         lockup_schedule_state.is_initialized = true;
